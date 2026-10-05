@@ -8,7 +8,7 @@ Reading Debezium correctly is half of CDC work. One Kafka record per change:
              "source": {"lsn": ..., "ts_ms": ...},
              "op": "c" | "u" | "d" | "r"}
 
-After a delete Debezium also sends a *tombstone*: same key, value = null, so
+a delete Debezium also sends a *tombstone*: same key, value = null, so
 Kafka log compaction can forget the key. Tombstones carry no change.
 
 Timestamps in `after` use Debezium's default for Postgres TIMESTAMP:
@@ -37,7 +37,10 @@ def ticket_changes_sql(upto: str | None = None, batch: str | None = None) -> str
     return f"""
     SELECT * FROM (
         SELECT
-            j->'value'->'after'->>'ticket_id'                       AS ticket_id,
+            -- a CDC delete has after = null: the key lives in `before` (or the Kafka key)
+            coalesce(j->'value'->'after'->>'ticket_id',
+                     j->'value'->'before'->>'ticket_id',
+                     j->'key'->>'ticket_id')                        AS ticket_id,
             _op,
             (j->'value'->'source'->>'lsn')::BIGINT                  AS _lsn,
             make_timestamp((j->'value'->'source'->>'ts_ms')::BIGINT * 1000) AS _changed_at,
