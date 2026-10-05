@@ -7,7 +7,7 @@ Phần phân tích tối đa một trang, không tính output ở phần 5.
 
 **Repo:** https://github.com/kelsingo/K4-Track02-Day17-NgoHoangThuyKhue-2A202603017-DataPipelineEngineering
 
-**Commit bài nộp:** `b7f5658`
+**Commit bài nộp:** `77d6aeb`
 
 **AI đã dùng và phạm vi hỗ trợ (hoặc không dùng):** sửa code và file MD report 
 
@@ -164,7 +164,18 @@ $ make parity
   [OK ] silver_tickets       lite 3c15dfd43701  dbt 3c15dfd43701
   [OK ] gold_feature_daily   lite 8630e04a61d1  dbt 8630e04a61d1
 RESULT: PARITY — both implementations agree
+
+$ make bonus-llm
+=== bonus: LLM labelling of 11 live tickets ===
+  cost estimate before running: ~484 tokens = $0.0010 per full run
+  [OK ] first run labels every live ticket
+  [OK ] re-run with same model + prompt makes 0 LLM calls
+  [OK ] every Gold label is bug / billing / other
+  [OK ] off-schema answers go to llm_label_quarantine
+  [OK ] new prompt version re-labels on purpose
+  [OK ] labels carry their prompt version
+BONUS PASS
 ```
 
 Nếu dùng PowerShell, ghi lệnh tương đương và output thực tế theo [SUBMISSION.md](../docs/SUBMISSION.md).
-Nếu làm bonus, thêm output B1 hoặc đường dẫn bằng chứng B2 ở cuối phần này.
+Nếu làm bonus, thêm output B1 hoặc đường dẫn bằng chứng B2 ở cuối phần này.  
