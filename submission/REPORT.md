@@ -4,9 +4,13 @@ Phần phân tích tối đa một trang, không tính output ở phần 5.
 Định dạng tham chiếu và phạm vi tính trang: [SUBMISSION.md](../docs/SUBMISSION.md).
 
 **Họ tên / MSSV:** Ngô Hoàng Thụy Khuê/2A202603017
+
 **Repo:** https://github.com/kelsingo/K4-Track02-Day17-NgoHoangThuyKhue-2A202603017-DataPipelineEngineering
-**Commit bài nộp:** 
+
+**Commit bài nộp:** `b7f5658`
+
 **AI đã dùng và phạm vi hỗ trợ (hoặc không dùng):** sửa code và file MD report 
+
 **Nguồn tham khảo khác (nếu có):** 
 
 ## 1. Ba lỗi
