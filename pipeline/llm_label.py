@@ -18,6 +18,7 @@ real model (swap in any provider via .env if you like — the pipeline is the sa
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 
@@ -60,15 +61,24 @@ def estimate_tokens(texts: list[str]) -> int:
 
 
 def parse_label(raw: str) -> str | None:
-    """Pull {"label": ...} out of the model's answer; None if it is not valid."""
+    """Validate the model's answer against the schema {"label": <allowed>}.
+    Returns the label, or None if it is not valid (-> quarantine, never Gold)."""
     m = re.search(r"\{.*\}", raw, flags=re.S)
     if not m:
         return None
     try:
-        label = json.loads(m.group(0)).get("label")
+        obj = json.loads(m.group(0))
     except json.JSONDecodeError:
         return None
-    return label if label in ALLOWED_LABELS else None
+    if not isinstance(obj, dict) or set(obj) != {"label"}:      # no missing / extra keys
+        return None
+    label = obj["label"]
+    return label if isinstance(label, str) and label in ALLOWED_LABELS else None
+
+
+def cache_key(text: str, model: str, prompt_version: str) -> str:
+    """Rule 1: key = hash(input) + model + prompt version."""
+    return hashlib.sha256(f"{model}\x1f{prompt_version}\x1f{text}".encode("utf-8")).hexdigest()
 
 
 def live_tickets(con: duckdb.DuckDBPyConnection) -> list[tuple[str, str]]:
@@ -81,13 +91,52 @@ def live_tickets(con: duckdb.DuckDBPyConnection) -> list[tuple[str, str]]:
 
 
 def label_tickets(con: duckdb.DuckDBPyConnection, llm: FakeLLM) -> dict:
-    """NAIVE version (shipped): one LLM call per ticket per run, no validation."""
-    rows = []
-    for ticket_id, text in live_tickets(con):
+    """Cached, validated, versioned LLM labelling (the four rules of the slide).
+
+    * cache  : llm_label_cache keyed by hash(text)+model+prompt_version. Every raw
+               answer (valid OR invalid) is cached, so a re-run makes 0 LLM calls;
+               a new prompt version / model changes the key and re-labels on purpose.
+    * schema : answers are validated with parse_label; invalid ones go to
+               llm_label_quarantine with a reason and never reach gold_ticket_labels.
+    * version: model + prompt_version are stored on every Gold row.
+    Gold and quarantine are rebuilt from the cache each run (idempotent; deleted
+    tickets disappear because only live Silver tickets are labelled).
+    """
+    model, prompt_version = llm.model, PROMPT_VERSION     # read at call time
+    con.execute("""CREATE TABLE IF NOT EXISTS llm_label_cache (
+        cache_key VARCHAR PRIMARY KEY, model VARCHAR, prompt_version VARCHAR,
+        raw VARCHAR, label VARCHAR)""")           # label NULL = answer failed validation
+    live = live_tickets(con)
+    keys = {tid: cache_key(text, model, prompt_version) for tid, text in live}
+    cached = {k for (k,) in con.execute("SELECT cache_key FROM llm_label_cache").fetchall()}
+
+    new_rows = {}
+    for ticket_id, text in live:
+        key = keys[ticket_id]
+        if key in cached or key in new_rows:
+            continue                                   # cache hit -> no LLM call
         raw = llm.complete(PROMPT_TEMPLATE.format(text=text))
-        rows.append((ticket_id, raw, MODEL, PROMPT_VERSION))
+        new_rows[key] = (key, model, prompt_version, raw, parse_label(raw))
+    if new_rows:
+        con.executemany("INSERT INTO llm_label_cache VALUES (?, ?, ?, ?, ?)", list(new_rows.values()))
+
     con.execute("""CREATE OR REPLACE TABLE gold_ticket_labels (
         ticket_id VARCHAR, label VARCHAR, model VARCHAR, prompt_version VARCHAR)""")
-    if rows:
-        con.executemany("INSERT INTO gold_ticket_labels VALUES (?, ?, ?, ?)", rows)
-    return {"labeled": len(rows), "calls": llm.calls}
+    con.execute("""CREATE OR REPLACE TABLE llm_label_quarantine (
+        ticket_id VARCHAR, raw VARCHAR, reason VARCHAR, model VARCHAR, prompt_version VARCHAR)""")
+    good, bad = [], []
+    for ticket_id, _ in live:
+        key = keys[ticket_id]
+        raw, label = con.execute(
+            "SELECT raw, label FROM llm_label_cache WHERE cache_key = ?", [key]).fetchone()
+        if label is None:
+            bad.append((ticket_id, raw, "off-schema answer: expected {\"label\": bug|billing|other}",
+                        model, prompt_version))
+        else:
+            good.append((ticket_id, label, model, prompt_version))
+    if good:
+        con.executemany("INSERT INTO gold_ticket_labels VALUES (?, ?, ?, ?)", good)
+    if bad:
+        con.executemany("INSERT INTO llm_label_quarantine VALUES (?, ?, ?, ?, ?)", bad)
+    return {"labeled": len(good), "quarantined": len(bad), "calls": llm.calls,
+            "new_calls": len(new_rows)}
