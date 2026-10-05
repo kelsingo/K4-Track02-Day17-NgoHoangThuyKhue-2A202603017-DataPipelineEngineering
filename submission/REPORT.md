@@ -3,11 +3,11 @@
 Phần phân tích tối đa một trang, không tính output ở phần 5.
 Định dạng tham chiếu và phạm vi tính trang: [SUBMISSION.md](../docs/SUBMISSION.md).
 
-**Họ tên / MSSV:**
-**Repo:**
-**Commit bài nộp:**
-**AI đã dùng và phạm vi hỗ trợ (hoặc không dùng):**
-**Nguồn tham khảo khác (nếu có):**
+**Họ tên / MSSV:** Ngô Hoàng Thụy Khuê/2A202603017
+**Repo:** 
+**Commit bài nộp:** 
+**AI đã dùng và phạm vi hỗ trợ (hoặc không dùng):** 
+**Nguồn tham khảo khác (nếu có):** 
 
 ## 1. Ba lỗi
 
@@ -23,8 +23,8 @@ checksum nào lệch) — không phải cách sửa.
 
 ## 2. Các con số
 
-- P99 lateness đo từ Bronze: `____` ngày → `LOOKBACK_DAYS = ____`
-- `submission/checksums.txt`: PASS / FAIL — Gold checksum: `________________`
+- P99 lateness đo từ Bronze: `3.00` ngày → `LOOKBACK_DAYS = 0`
+- `submission/checksums.txt`: FAIL — Gold checksum: `________________`
 - `make parity`: PARITY / MISMATCH
 
 ## 3. Lựa chọn công cụ / kỹ thuật (mỗi dòng một câu "vì sao")
